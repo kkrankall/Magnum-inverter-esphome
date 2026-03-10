@@ -18,12 +18,13 @@ esphome:
 # Change to your board type
 esp32:
   board: m5stack-atom
+  #board: m5stack-atoms3 #for newer AtomS3 Lite
   framework:
     type: arduino
 
 # Pull the component from GitHub
 external_components:
-  - source: github://YOUR_USERNAME/magnum-inverter-esphome
+  - source: github://kkrankall/magnum-inverter-esphome
     components: [magnum_inverter]
 
 wifi:
@@ -49,8 +50,8 @@ time:
 # Adjust tx_pin/rx_pin for your board
 uart:
   id: magnum_uart
-  tx_pin: GPIO19
-  rx_pin: GPIO22
+  tx_pin: GPIO19  #for newer AtomS3 Lite use GPI006
+  rx_pin: GPIO22  #for newer AtomS3 Lite use GPI005
   baud_rate: 19200
   data_bits: 8
   parity: NONE
@@ -200,5 +201,3 @@ button:
   - platform: magnum_inverter
     record_packets:
       name: "${friendly_name} Record Raw Packets"
-    toggle_inverter:
-      name: "${friendly_name} Toggle Inverter"
