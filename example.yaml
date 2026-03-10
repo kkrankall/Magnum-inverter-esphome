@@ -1,0 +1,204 @@
+# Example ESPHome configuration for Magnum Energy Inverter
+# 
+# Hardware: M5Stack Atom + Atomic RS485 Base (or any ESP32 with RS485 transceiver)
+# Connection: RJ-11 network port on Magnum inverter
+#   Pin 1 (top) = RS485 "B"
+#   Pin 2 = +14V (do not connect)
+#   Pin 3 = GND
+#   Pin 4 (bottom) = RS485 "A"
+
+substitutions:
+  name: magnum-rs485
+  friendly_name: "Magnum Inverter"
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+
+# Change to your board type
+esp32:
+  board: m5stack-atom
+  framework:
+    type: arduino
+
+# Pull the component from GitHub
+external_components:
+  - source: github://YOUR_USERNAME/magnum-inverter-esphome
+    components: [magnum_inverter]
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+api:
+  encryption:
+    key: !secret api_key
+
+ota:
+  - platform: esphome
+
+logger:
+  level: INFO
+
+# Time source (optional, used for fault timestamps)
+time:
+  - platform: homeassistant
+    id: ha_time
+
+# UART configuration for RS485
+# Adjust tx_pin/rx_pin for your board
+uart:
+  id: magnum_uart
+  tx_pin: GPIO19
+  rx_pin: GPIO22
+  baud_rate: 19200
+  data_bits: 8
+  parity: NONE
+  stop_bits: 1
+
+# Magnum Inverter component
+magnum_inverter:
+  uart_id: magnum_uart
+  time_id: ha_time
+
+# ============================================================
+# Sensors (numeric values)
+# ============================================================
+sensor:
+  - platform: magnum_inverter
+
+    # ---- Inverter ----
+    battery_voltage:
+      name: "${friendly_name} Battery Voltage"
+    dc_amps:
+      name: "${friendly_name} DC Amps"
+    ac_out_voltage:
+      name: "${friendly_name} AC Output Voltage"
+    ac_in_voltage:
+      name: "${friendly_name} AC Input Voltage"
+    ac_out_amps:
+      name: "${friendly_name} AC Output Amps"
+    ac_in_amps:
+      name: "${friendly_name} AC Input Amps"
+    ac_out_watts:
+      name: "${friendly_name} AC Output Watts"
+    battery_watts:
+      name: "${friendly_name} Battery Watts"
+    frequency:
+      name: "${friendly_name} Frequency"
+    battery_temp:
+      name: "${friendly_name} Battery Temp"
+    fet_temp:
+      name: "${friendly_name} FET Temp"
+    xfmr_temp:
+      name: "${friendly_name} Transformer Temp"
+    inverter_fault_code:
+      name: "${friendly_name} Fault Code"
+    inverter_fault_active:
+      name: "${friendly_name} Fault Active"
+    inverter_revision:
+      name: "${friendly_name} Inverter Revision"
+
+    # ---- BMK (Battery Monitor) ----
+    bmk_soc:
+      name: "${friendly_name} BMK SOC"
+    bmk_voltage:
+      name: "${friendly_name} BMK Voltage"
+    bmk_amps:
+      name: "${friendly_name} BMK Amps"
+    bmk_min_voltage:
+      name: "${friendly_name} BMK Min Voltage"
+    bmk_max_voltage:
+      name: "${friendly_name} BMK Max Voltage"
+    bmk_ah_inout:
+      name: "${friendly_name} BMK Ah In/Out"
+    bmk_ah_trip:
+      name: "${friendly_name} BMK Ah Trip"
+    bmk_cumulative_ah:
+      name: "${friendly_name} BMK Cumulative Ah"
+    bmk_revision:
+      name: "${friendly_name} BMK Revision"
+    bmk_watts:
+      name: "${friendly_name} BMK Watts"
+
+    # ---- Remote/ARTR Settings ----
+    remote_searchwatts:
+      name: "${friendly_name} Search Watts"
+    remote_chargeramps:
+      name: "${friendly_name} Charger Amps %"
+    remote_absorb:
+      name: "${friendly_name} Absorb Voltage"
+    remote_float:
+      name: "${friendly_name} Float Voltage"
+    remote_eq:
+      name: "${friendly_name} EQ Voltage"
+    remote_lbco:
+      name: "${friendly_name} LBCO Voltage"
+    remote_battery_size:
+      name: "${friendly_name} Battery Size"
+    remote_shore_amps:
+      name: "${friendly_name} Shore Amps"
+    remote_vac_cutout:
+      name: "${friendly_name} VAC Cutout"
+    remote_absorb_time:
+      name: "${friendly_name} Absorb Time"
+
+    # ---- RTR ----
+    rtr_revision:
+      name: "${friendly_name} RTR Revision"
+    rtr_frames:
+      name: "${friendly_name} RTR Frames"
+
+    # ---- Diagnostics ----
+    inverter_frames:
+      name: "${friendly_name} Inverter Frames"
+    bmk_frames:
+      name: "${friendly_name} BMK Frames"
+    remote_frames:
+      name: "${friendly_name} Remote Frames"
+    rejected_frames:
+      name: "${friendly_name} Rejected Frames"
+    last_frame_age:
+      name: "${friendly_name} Last Frame Age"
+    last_fault_code:
+      name: "${friendly_name} Last Fault Code"
+
+# ============================================================
+# Text Sensors (string values)
+# ============================================================
+text_sensor:
+  - platform: magnum_inverter
+    mode:
+      name: "${friendly_name} Mode"
+    inverter_fault:
+      name: "${friendly_name} Fault Text"
+    inverter_model:
+      name: "${friendly_name} Model"
+    inverter_stackmode:
+      name: "${friendly_name} Stack Mode"
+    inverter_led:
+      name: "${friendly_name} Inverter LED"
+    charger_led:
+      name: "${friendly_name} Charger LED"
+    inverter_on:
+      name: "${friendly_name} Inverter On"
+    bmk_fault:
+      name: "${friendly_name} BMK Fault"
+    rtr_model:
+      name: "${friendly_name} RTR Model"
+    remote_battery_type:
+      name: "${friendly_name} Battery Type"
+    last_fault_text:
+      name: "${friendly_name} Last Fault Text"
+    last_fault_time:
+      name: "${friendly_name} Last Fault Time"
+
+# ============================================================
+# Buttons (actions)
+# ============================================================
+button:
+  - platform: magnum_inverter
+    record_packets:
+      name: "${friendly_name} Record Raw Packets"
+    toggle_inverter:
+      name: "${friendly_name} Toggle Inverter"
