@@ -229,16 +229,16 @@ MM612, MM612-AE, MM1212, MMS1012, MM1012E, MM1512, MMS912E, ME1512, ME2012, RD22
 - Verify wiring: A→A, B→B, GND→GND
 - Check baud rate is 19200
 - Try swapping A and B lines
-- Ensure the RJ-11 cable is plugged into the inverter's "Network" port
+- Ensure the RJ-11 cable is plugged into the inverter's "Network" port or port 5 or 6 on the ME-ARTR and using a phone splitter
 
 **BMK rejected messages:**
 - Normal during startup as the parser synchronizes with the packet stream
 - Should decrease after a few seconds
 
 **Garbled data (lots of 0xFF):**
+- RS485 A and B are backwards
 - Wrong baud rate — verify 19200
 - Electrical issue — check connections and cable length
-- If on a parallel slave's network port, try the master's port instead
 
 ## License
 
