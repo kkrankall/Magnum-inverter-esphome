@@ -1,7 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import text_sensor
-from esphome.const import CONF_ID
+from esphome.const import CONF_ID, DEVICE_CLASS_TIMESTAMP, ENTITY_CATEGORY_DIAGNOSTIC
 from . import MagnumInverter
 
 CONF_MODE = "mode"
@@ -17,21 +17,27 @@ CONF_INVERTER_LED = "inverter_led"
 CONF_CHARGER_LED = "charger_led"
 CONF_INVERTER_ON = "inverter_on"
 
+
+def _diagnostic(icon):
+    return text_sensor.text_sensor_schema(entity_category=ENTITY_CATEGORY_DIAGNOSTIC, icon=icon)
+
+
 CONFIG_SCHEMA = cv.Schema(
     {
         cv.GenerateID(CONF_ID): cv.use_id(MagnumInverter),
-        cv.Optional(CONF_MODE): text_sensor.text_sensor_schema(),
-        cv.Optional(CONF_INVERTER_FAULT): text_sensor.text_sensor_schema(),
-        cv.Optional(CONF_INVERTER_MODEL): text_sensor.text_sensor_schema(),
-        cv.Optional(CONF_INVERTER_STACKMODE): text_sensor.text_sensor_schema(),
-        cv.Optional(CONF_BMK_FAULT): text_sensor.text_sensor_schema(),
-        cv.Optional(CONF_LAST_FAULT_TEXT): text_sensor.text_sensor_schema(),
-        cv.Optional(CONF_LAST_FAULT_TIME): text_sensor.text_sensor_schema(),
-        cv.Optional(CONF_RTR_MODEL): text_sensor.text_sensor_schema(),
-        cv.Optional(CONF_REMOTE_BATTERY_TYPE): text_sensor.text_sensor_schema(),
-        cv.Optional(CONF_INVERTER_LED): text_sensor.text_sensor_schema(),
-        cv.Optional(CONF_CHARGER_LED): text_sensor.text_sensor_schema(),
-        cv.Optional(CONF_INVERTER_ON): text_sensor.text_sensor_schema(),
+        cv.Optional(CONF_MODE): text_sensor.text_sensor_schema(icon="mdi:sine-wave"),
+        cv.Optional(CONF_INVERTER_FAULT): text_sensor.text_sensor_schema(icon="mdi:alert-circle-outline"),
+        cv.Optional(CONF_INVERTER_MODEL): _diagnostic("mdi:information-outline"),
+        cv.Optional(CONF_INVERTER_STACKMODE): _diagnostic("mdi:layers-outline"),
+        cv.Optional(CONF_BMK_FAULT): text_sensor.text_sensor_schema(icon="mdi:battery-alert-variant-outline"),
+        cv.Optional(CONF_LAST_FAULT_TEXT): text_sensor.text_sensor_schema(icon="mdi:alert-circle-outline"),
+        # ISO 8601 in UTC, so Home Assistant shows it as a time ("3 hours ago")
+        cv.Optional(CONF_LAST_FAULT_TIME): text_sensor.text_sensor_schema(device_class=DEVICE_CLASS_TIMESTAMP),
+        cv.Optional(CONF_RTR_MODEL): _diagnostic("mdi:router-network"),
+        cv.Optional(CONF_REMOTE_BATTERY_TYPE): _diagnostic("mdi:car-battery"),
+        cv.Optional(CONF_INVERTER_LED): text_sensor.text_sensor_schema(icon="mdi:led-outline"),
+        cv.Optional(CONF_CHARGER_LED): text_sensor.text_sensor_schema(icon="mdi:led-outline"),
+        cv.Optional(CONF_INVERTER_ON): text_sensor.text_sensor_schema(icon="mdi:power"),
     }
 )
 
