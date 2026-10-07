@@ -1,7 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import button
-from esphome.const import CONF_ID
+from esphome.const import CONF_ID, ENTITY_CATEGORY_DIAGNOSTIC
 from . import MagnumInverter, magnum_ns
 
 RecordPacketsButton = magnum_ns.class_("RecordPacketsButton", button.Button)
@@ -13,8 +13,10 @@ CONF_TOGGLE_INVERTER = "toggle_inverter"
 CONFIG_SCHEMA = cv.Schema(
     {
         cv.GenerateID(CONF_ID): cv.use_id(MagnumInverter),
-        cv.Optional(CONF_RECORD_PACKETS): button.button_schema(RecordPacketsButton),
-        cv.Optional(CONF_TOGGLE_INVERTER): button.button_schema(ToggleInverterButton),
+        cv.Optional(CONF_RECORD_PACKETS): button.button_schema(
+            RecordPacketsButton, entity_category=ENTITY_CATEGORY_DIAGNOSTIC, icon="mdi:record-rec"
+        ),
+        cv.Optional(CONF_TOGGLE_INVERTER): button.button_schema(ToggleInverterButton, icon="mdi:power"),
     }
 )
 

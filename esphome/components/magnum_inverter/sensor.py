@@ -1,8 +1,30 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import sensor
-from esphome.const import CONF_ID
+from esphome.const import (
+    CONF_ID,
+    DEVICE_CLASS_BATTERY,
+    DEVICE_CLASS_CURRENT,
+    DEVICE_CLASS_DURATION,
+    DEVICE_CLASS_FREQUENCY,
+    DEVICE_CLASS_POWER,
+    DEVICE_CLASS_TEMPERATURE,
+    DEVICE_CLASS_VOLTAGE,
+    ENTITY_CATEGORY_DIAGNOSTIC,
+    STATE_CLASS_MEASUREMENT,
+    STATE_CLASS_TOTAL_INCREASING,
+    UNIT_AMPERE,
+    UNIT_CELSIUS,
+    UNIT_HERTZ,
+    UNIT_HOUR,
+    UNIT_PERCENT,
+    UNIT_SECOND,
+    UNIT_VOLT,
+    UNIT_WATT,
+)
 from . import MagnumInverter
+
+UNIT_AMPERE_HOURS = "Ah"
 
 # Inverter sensors
 CONF_BATTERY_VOLTAGE = "battery_voltage"
@@ -59,116 +81,124 @@ CONF_LAST_FRAME_AGE = "last_frame_age"
 # Fault latch / history
 CONF_LAST_FAULT_CODE = "last_fault_code"
 
+
+def _measure(unit, device_class, decimals, **kwargs):
+    return sensor.sensor_schema(
+        unit_of_measurement=unit,
+        device_class=device_class,
+        state_class=STATE_CLASS_MEASUREMENT,
+        accuracy_decimals=decimals,
+        **kwargs,
+    )
+
+
+def _setting(unit, device_class, decimals, icon=cv.UNDEFINED):
+    # Read-only charger settings broadcast by the remote
+    return sensor.sensor_schema(
+        unit_of_measurement=unit,
+        device_class=device_class,
+        accuracy_decimals=decimals,
+        entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+        icon=icon,
+    )
+
+
+def _diagnostic(decimals, icon, **kwargs):
+    return sensor.sensor_schema(
+        accuracy_decimals=decimals,
+        entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+        icon=icon,
+        **kwargs,
+    )
+
+
+# config key -> (setter, schema)
+_SENSORS = {
+    # Inverter
+    CONF_BATTERY_VOLTAGE: ("set_battery_voltage_sensor", _measure(UNIT_VOLT, DEVICE_CLASS_VOLTAGE, 1)),
+    CONF_DC_AMPS: ("set_dc_amps_sensor", _measure(UNIT_AMPERE, DEVICE_CLASS_CURRENT, 0)),
+    CONF_AC_OUT_VOLTAGE: ("set_ac_out_voltage_sensor", _measure(UNIT_VOLT, DEVICE_CLASS_VOLTAGE, 0)),
+    CONF_AC_IN_VOLTAGE: ("set_ac_in_voltage_sensor", _measure(UNIT_VOLT, DEVICE_CLASS_VOLTAGE, 0)),
+    CONF_AC_OUT_AMPS: ("set_ac_out_amps_sensor", _measure(UNIT_AMPERE, DEVICE_CLASS_CURRENT, 0)),
+    CONF_AC_IN_AMPS: ("set_ac_in_amps_sensor", _measure(UNIT_AMPERE, DEVICE_CLASS_CURRENT, 0)),
+    CONF_AC_OUT_WATTS: ("set_ac_out_watts_sensor", _measure(UNIT_WATT, DEVICE_CLASS_POWER, 0)),
+    CONF_BATTERY_WATTS: ("set_battery_watts_sensor", _measure(UNIT_WATT, DEVICE_CLASS_POWER, 1)),
+    CONF_FREQUENCY: ("set_frequency_sensor", _measure(UNIT_HERTZ, DEVICE_CLASS_FREQUENCY, 1)),
+    CONF_BATTERY_TEMP: ("set_battery_temp_sensor", _measure(UNIT_CELSIUS, DEVICE_CLASS_TEMPERATURE, 0)),
+    CONF_FET_TEMP: ("set_fet_temp_sensor", _measure(UNIT_CELSIUS, DEVICE_CLASS_TEMPERATURE, 0)),
+    CONF_XFMR_TEMP: ("set_xfmr_temp_sensor", _measure(UNIT_CELSIUS, DEVICE_CLASS_TEMPERATURE, 0)),
+    CONF_INVERTER_FAULT_CODE: ("set_inverter_fault_code_sensor", _diagnostic(0, "mdi:alert-circle-outline")),
+    CONF_INVERTER_FAULT_ACTIVE: ("set_inverter_fault_active_sensor", sensor.sensor_schema(accuracy_decimals=0)),
+    CONF_INVERTER_REVISION: ("set_inverter_revision_sensor", _diagnostic(1, "mdi:chip")),
+    # BMK
+    CONF_BMK_SOC: ("set_bmk_soc_sensor", _measure(UNIT_PERCENT, DEVICE_CLASS_BATTERY, 0)),
+    CONF_BMK_VOLTAGE: ("set_bmk_voltage_sensor", _measure(UNIT_VOLT, DEVICE_CLASS_VOLTAGE, 2)),
+    CONF_BMK_AMPS: ("set_bmk_amps_sensor", _measure(UNIT_AMPERE, DEVICE_CLASS_CURRENT, 1)),
+    CONF_BMK_MIN_VOLTAGE: ("set_bmk_min_voltage_sensor", _measure(UNIT_VOLT, DEVICE_CLASS_VOLTAGE, 2)),
+    CONF_BMK_MAX_VOLTAGE: ("set_bmk_max_voltage_sensor", _measure(UNIT_VOLT, DEVICE_CLASS_VOLTAGE, 2)),
+    CONF_BMK_AH_INOUT: (
+        "set_bmk_ah_inout_sensor",
+        _measure(UNIT_AMPERE_HOURS, cv.UNDEFINED, 0, icon="mdi:battery-sync"),
+    ),
+    CONF_BMK_AH_TRIP: (
+        "set_bmk_ah_trip_sensor",
+        _measure(UNIT_AMPERE_HOURS, cv.UNDEFINED, 1, icon="mdi:battery-clock"),
+    ),
+    CONF_BMK_CUMULATIVE_AH: (
+        "set_bmk_cumulative_ah_sensor",
+        sensor.sensor_schema(
+            unit_of_measurement=UNIT_AMPERE_HOURS,
+            state_class=STATE_CLASS_TOTAL_INCREASING,
+            accuracy_decimals=0,
+            icon="mdi:battery-arrow-down",
+        ),
+    ),
+    CONF_BMK_REVISION: ("set_bmk_revision_sensor", _diagnostic(1, "mdi:chip")),
+    CONF_BMK_WATTS: ("set_bmk_watts_sensor", _measure(UNIT_WATT, DEVICE_CLASS_POWER, 1)),
+    # Remote/ARTR
+    CONF_REMOTE_SEARCHWATTS: ("set_remote_searchwatts_sensor", _setting(UNIT_WATT, DEVICE_CLASS_POWER, 0)),
+    CONF_REMOTE_CHARGERAMPS: (
+        "set_remote_chargeramps_sensor",
+        _setting(UNIT_PERCENT, cv.UNDEFINED, 0, "mdi:battery-charging"),
+    ),
+    CONF_REMOTE_ABSORB: ("set_remote_absorb_sensor", _setting(UNIT_VOLT, DEVICE_CLASS_VOLTAGE, 1)),
+    CONF_REMOTE_FLOAT: ("set_remote_float_sensor", _setting(UNIT_VOLT, DEVICE_CLASS_VOLTAGE, 1)),
+    CONF_REMOTE_EQ: ("set_remote_eq_sensor", _setting(UNIT_VOLT, DEVICE_CLASS_VOLTAGE, 1)),
+    CONF_REMOTE_LBCO: ("set_remote_lbco_sensor", _setting(UNIT_VOLT, DEVICE_CLASS_VOLTAGE, 1)),
+    CONF_REMOTE_BATTERY_SIZE: (
+        "set_remote_battery_size_sensor",
+        _setting(UNIT_AMPERE_HOURS, cv.UNDEFINED, 0, "mdi:car-battery"),
+    ),
+    CONF_REMOTE_SHORE_AMPS: ("set_remote_shore_amps_sensor", _setting(UNIT_AMPERE, DEVICE_CLASS_CURRENT, 0)),
+    CONF_REMOTE_VAC_CUTOUT: ("set_remote_vac_cutout_sensor", _setting(cv.UNDEFINED, cv.UNDEFINED, 0, "mdi:sine-wave")),
+    CONF_REMOTE_ABSORB_TIME: ("set_remote_absorb_time_sensor", _setting(UNIT_HOUR, DEVICE_CLASS_DURATION, 1)),
+    # RTR
+    CONF_RTR_REVISION: ("set_rtr_revision_sensor", _diagnostic(1, "mdi:chip")),
+    CONF_RTR_FRAMES: ("set_rtr_frames_sensor", _diagnostic(0, "mdi:counter")),
+    # Diagnostics
+    CONF_INV_FRAMES: ("set_inverter_frames_sensor", _diagnostic(0, "mdi:counter")),
+    CONF_BMK_FRAMES: ("set_bmk_frames_sensor", _diagnostic(0, "mdi:counter")),
+    CONF_REMOTE_FRAMES: ("set_remote_frames_sensor", _diagnostic(0, "mdi:counter")),
+    CONF_REJECTED: ("set_rejected_frames_sensor", _diagnostic(0, "mdi:counter")),
+    CONF_LAST_FRAME_AGE: (
+        "set_last_frame_age_sensor",
+        _diagnostic(1, "mdi:timer-outline", unit_of_measurement=UNIT_SECOND, device_class=DEVICE_CLASS_DURATION),
+    ),
+    # Fault history
+    CONF_LAST_FAULT_CODE: ("set_last_fault_code_sensor", sensor.sensor_schema(accuracy_decimals=0)),
+}
+
 CONFIG_SCHEMA = cv.Schema(
     {
         cv.GenerateID(CONF_ID): cv.use_id(MagnumInverter),
-
-        # Inverter
-        cv.Optional(CONF_BATTERY_VOLTAGE): sensor.sensor_schema(accuracy_decimals=1),
-        cv.Optional(CONF_DC_AMPS): sensor.sensor_schema(accuracy_decimals=0),
-        cv.Optional(CONF_AC_OUT_VOLTAGE): sensor.sensor_schema(accuracy_decimals=0),
-        cv.Optional(CONF_AC_IN_VOLTAGE): sensor.sensor_schema(accuracy_decimals=0),
-        cv.Optional(CONF_AC_OUT_AMPS): sensor.sensor_schema(accuracy_decimals=0),
-        cv.Optional(CONF_AC_IN_AMPS): sensor.sensor_schema(accuracy_decimals=0),
-        cv.Optional(CONF_AC_OUT_WATTS): sensor.sensor_schema(accuracy_decimals=0),
-        cv.Optional(CONF_BATTERY_WATTS): sensor.sensor_schema(accuracy_decimals=1),
-        cv.Optional(CONF_FREQUENCY): sensor.sensor_schema(accuracy_decimals=1),
-        cv.Optional(CONF_BATTERY_TEMP): sensor.sensor_schema(accuracy_decimals=0),
-        cv.Optional(CONF_FET_TEMP): sensor.sensor_schema(accuracy_decimals=0),
-        cv.Optional(CONF_XFMR_TEMP): sensor.sensor_schema(accuracy_decimals=0),
-        cv.Optional(CONF_INVERTER_FAULT_CODE): sensor.sensor_schema(accuracy_decimals=0),
-        cv.Optional(CONF_INVERTER_FAULT_ACTIVE): sensor.sensor_schema(accuracy_decimals=0),
-        cv.Optional(CONF_INVERTER_REVISION): sensor.sensor_schema(accuracy_decimals=1),
-
-        # BMK
-        cv.Optional(CONF_BMK_SOC): sensor.sensor_schema(accuracy_decimals=0),
-        cv.Optional(CONF_BMK_VOLTAGE): sensor.sensor_schema(accuracy_decimals=2),
-        cv.Optional(CONF_BMK_AMPS): sensor.sensor_schema(accuracy_decimals=1),
-        cv.Optional(CONF_BMK_MIN_VOLTAGE): sensor.sensor_schema(accuracy_decimals=2),
-        cv.Optional(CONF_BMK_MAX_VOLTAGE): sensor.sensor_schema(accuracy_decimals=2),
-        cv.Optional(CONF_BMK_AH_INOUT): sensor.sensor_schema(accuracy_decimals=0),
-        cv.Optional(CONF_BMK_AH_TRIP): sensor.sensor_schema(accuracy_decimals=1),
-        cv.Optional(CONF_BMK_CUMULATIVE_AH): sensor.sensor_schema(accuracy_decimals=0),
-        cv.Optional(CONF_BMK_REVISION): sensor.sensor_schema(accuracy_decimals=1),
-        cv.Optional(CONF_BMK_WATTS): sensor.sensor_schema(accuracy_decimals=1),
-
-        # Remote/ARTR
-        cv.Optional(CONF_REMOTE_SEARCHWATTS): sensor.sensor_schema(accuracy_decimals=0),
-        cv.Optional(CONF_REMOTE_CHARGERAMPS): sensor.sensor_schema(accuracy_decimals=0),
-        cv.Optional(CONF_REMOTE_ABSORB): sensor.sensor_schema(accuracy_decimals=1),
-        cv.Optional(CONF_REMOTE_FLOAT): sensor.sensor_schema(accuracy_decimals=1),
-        cv.Optional(CONF_REMOTE_EQ): sensor.sensor_schema(accuracy_decimals=1),
-        cv.Optional(CONF_REMOTE_LBCO): sensor.sensor_schema(accuracy_decimals=1),
-        cv.Optional(CONF_REMOTE_BATTERY_SIZE): sensor.sensor_schema(accuracy_decimals=0),
-        cv.Optional(CONF_REMOTE_SHORE_AMPS): sensor.sensor_schema(accuracy_decimals=0),
-        cv.Optional(CONF_REMOTE_VAC_CUTOUT): sensor.sensor_schema(accuracy_decimals=0),
-        cv.Optional(CONF_REMOTE_ABSORB_TIME): sensor.sensor_schema(accuracy_decimals=1),
-
-        # RTR
-        cv.Optional(CONF_RTR_REVISION): sensor.sensor_schema(accuracy_decimals=1),
-        cv.Optional(CONF_RTR_FRAMES): sensor.sensor_schema(accuracy_decimals=0),
-
-        # Diagnostics
-        cv.Optional(CONF_INV_FRAMES): sensor.sensor_schema(accuracy_decimals=0),
-        cv.Optional(CONF_BMK_FRAMES): sensor.sensor_schema(accuracy_decimals=0),
-        cv.Optional(CONF_REMOTE_FRAMES): sensor.sensor_schema(accuracy_decimals=0),
-        cv.Optional(CONF_REJECTED): sensor.sensor_schema(accuracy_decimals=0),
-        cv.Optional(CONF_LAST_FRAME_AGE): sensor.sensor_schema(accuracy_decimals=1),
-
-        # Fault history
-        cv.Optional(CONF_LAST_FAULT_CODE): sensor.sensor_schema(accuracy_decimals=0),
+        **{cv.Optional(key): schema for key, (_, schema) in _SENSORS.items()},
     }
 )
 
-_SENSOR_MAP = {
-    CONF_BATTERY_VOLTAGE: "set_battery_voltage_sensor",
-    CONF_DC_AMPS: "set_dc_amps_sensor",
-    CONF_AC_OUT_VOLTAGE: "set_ac_out_voltage_sensor",
-    CONF_AC_IN_VOLTAGE: "set_ac_in_voltage_sensor",
-    CONF_AC_OUT_AMPS: "set_ac_out_amps_sensor",
-    CONF_AC_IN_AMPS: "set_ac_in_amps_sensor",
-    CONF_AC_OUT_WATTS: "set_ac_out_watts_sensor",
-    CONF_BATTERY_WATTS: "set_battery_watts_sensor",
-    CONF_FREQUENCY: "set_frequency_sensor",
-    CONF_BATTERY_TEMP: "set_battery_temp_sensor",
-    CONF_FET_TEMP: "set_fet_temp_sensor",
-    CONF_XFMR_TEMP: "set_xfmr_temp_sensor",
-    CONF_INVERTER_FAULT_CODE: "set_inverter_fault_code_sensor",
-    CONF_INVERTER_FAULT_ACTIVE: "set_inverter_fault_active_sensor",
-    CONF_INVERTER_REVISION: "set_inverter_revision_sensor",
-    CONF_BMK_SOC: "set_bmk_soc_sensor",
-    CONF_BMK_VOLTAGE: "set_bmk_voltage_sensor",
-    CONF_BMK_AMPS: "set_bmk_amps_sensor",
-    CONF_BMK_MIN_VOLTAGE: "set_bmk_min_voltage_sensor",
-    CONF_BMK_MAX_VOLTAGE: "set_bmk_max_voltage_sensor",
-    CONF_BMK_AH_INOUT: "set_bmk_ah_inout_sensor",
-    CONF_BMK_AH_TRIP: "set_bmk_ah_trip_sensor",
-    CONF_BMK_CUMULATIVE_AH: "set_bmk_cumulative_ah_sensor",
-    CONF_BMK_REVISION: "set_bmk_revision_sensor",
-    CONF_BMK_WATTS: "set_bmk_watts_sensor",
-    CONF_REMOTE_SEARCHWATTS: "set_remote_searchwatts_sensor",
-    CONF_REMOTE_CHARGERAMPS: "set_remote_chargeramps_sensor",
-    CONF_REMOTE_ABSORB: "set_remote_absorb_sensor",
-    CONF_REMOTE_FLOAT: "set_remote_float_sensor",
-    CONF_REMOTE_EQ: "set_remote_eq_sensor",
-    CONF_REMOTE_LBCO: "set_remote_lbco_sensor",
-    CONF_REMOTE_BATTERY_SIZE: "set_remote_battery_size_sensor",
-    CONF_REMOTE_SHORE_AMPS: "set_remote_shore_amps_sensor",
-    CONF_REMOTE_VAC_CUTOUT: "set_remote_vac_cutout_sensor",
-    CONF_REMOTE_ABSORB_TIME: "set_remote_absorb_time_sensor",
-    CONF_RTR_REVISION: "set_rtr_revision_sensor",
-    CONF_RTR_FRAMES: "set_rtr_frames_sensor",
-    CONF_INV_FRAMES: "set_inverter_frames_sensor",
-    CONF_BMK_FRAMES: "set_bmk_frames_sensor",
-    CONF_REMOTE_FRAMES: "set_remote_frames_sensor",
-    CONF_REJECTED: "set_rejected_frames_sensor",
-    CONF_LAST_FRAME_AGE: "set_last_frame_age_sensor",
-    CONF_LAST_FAULT_CODE: "set_last_fault_code_sensor",
-}
 
 async def to_code(config):
     var = await cg.get_variable(config[CONF_ID])
-    for conf_key, setter_name in _SENSOR_MAP.items():
+    for conf_key, (setter_name, _) in _SENSORS.items():
         if conf_key in config:
             s = await sensor.new_sensor(config[conf_key])
             cg.add(getattr(var, setter_name)(s))

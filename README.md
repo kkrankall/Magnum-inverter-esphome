@@ -50,6 +50,16 @@ external_components:
 
 See [example.yaml](example.yaml) for a complete configuration with all available sensors.
 
+The component builds with both ESP32 frameworks: ESP-IDF (the ESPHome default since 2026.1) and Arduino.
+
+### Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `uart_id` | | The UART bus (19200 baud, 8N1). Optional if there is only one. |
+| `time_id` | | Time source, used to timestamp `last_fault_time`. |
+| `stale_timeout` | `10s` | When no inverter (or BMK) frames arrive for this long, those sensors change to unknown in Home Assistant instead of holding their last value. The `connected` binary sensor turns off. |
+
 ## Quick Start
 
 Minimal configuration:
@@ -98,10 +108,10 @@ text_sensor:
 | `battery_voltage` | DC battery voltage | V |
 | `dc_amps` | DC current | A |
 | `ac_out_voltage` | AC output voltage (RMS) | V |
-| `ac_in_voltage` | AC input voltage (peak) | V |
+| `ac_in_voltage` | AC input voltage as reported by the inverter (peak, not RMS) | V |
 | `ac_out_amps` | AC output current | A |
 | `ac_in_amps` | AC input current | A |
-| `ac_out_watts` | AC output power (derived) | W |
+| `ac_out_watts` | AC output power (derived: volts × amps, so apparent power in 1 A steps) | W |
 | `battery_watts` | Battery power (derived) | W |
 | `frequency` | AC output frequency | Hz |
 | `battery_temp` | Battery temperature | °C |
@@ -119,9 +129,18 @@ text_sensor:
 | `inverter_fault` | Fault description | None (0x00), Low battery, Over temp, etc. |
 | `inverter_model` | Inverter model name | MS4024PAE, MS2012, ME3112, etc. |
 | `inverter_stackmode` | Stacking configuration | Stand Alone, Parallel master, Parallel slave, etc. |
-| `inverter_led` | Inverter LED state | On, Off |
-| `charger_led` | Charger LED state | On, Off |
+| `inverter_led` | Inverter LED state (prefer the binary sensor below) | On, Off |
+| `charger_led` | Charger LED state (prefer the binary sensor below) | On, Off |
 | `inverter_on` | System active state | On (any mode except Off), Off |
+
+### Binary Sensors
+
+| Sensor | Description |
+|--------|-------------|
+| `connected` | On while frames are arriving from the Magnum network |
+| `inverter_led` | Inverter LED (on = inverter enabled) |
+| `charger_led` | Charger LED |
+| `inverter_fault` | On while the inverter reports a fault |
 
 ### BMK Sensors (Battery Monitor)
 
@@ -152,9 +171,9 @@ These reflect the current configuration settings from the ME-ARC or ME-ARTR remo
 |--------|-------------|------|
 | `remote_searchwatts` | Search mode watt threshold | W |
 | `remote_chargeramps` | Charger current limit | % |
-| `remote_absorb` | Absorb voltage setpoint | V |
+| `remote_absorb` | Absorb voltage setpoint (custom battery type only; the presets do not send it, so it is unknown) | V |
 | `remote_float` | Float voltage setpoint | V |
-| `remote_eq` | EQ voltage (absorb + EQ offset) | V |
+| `remote_eq` | EQ voltage (absorb + EQ offset; custom battery type only) | V |
 | `remote_lbco` | Low battery cutout voltage | V |
 | `remote_battery_size` | Configured battery bank size | Ah |
 | `remote_shore_amps` | AC shore power limit | A |
@@ -184,6 +203,8 @@ These reflect the current configuration settings from the ME-ARC or ME-ARTR remo
 | `remote_frames` | Total remote frames received |
 | `rejected_frames` | Rejected/unrecognized bytes |
 | `last_frame_age` | Seconds since last valid frame |
+
+The frame counters and `last_frame_age` update every 10 seconds; everything else updates every second.
 | `last_fault_code` | Last latched fault code |
 | `last_fault_text` | Last fault description (text sensor) |
 | `last_fault_time` | Timestamp of last fault (text sensor) |
@@ -197,7 +218,7 @@ These reflect the current configuration settings from the ME-ARC or ME-ARTR remo
 
 ### Raw Packet Recording
 
-The `record_packets` button captures all raw RS485 bus traffic for 15 seconds and dumps it to the ESPHome log. This is useful for debugging, reverse engineering, or verifying bus communication.
+The `record_packets` button logs all raw RS485 bus traffic for 15 seconds, 32 bytes per line, as it is received. This is useful for debugging, reverse engineering, or verifying bus communication.
 
 ### Toggle Inverter (Experimental)
 
@@ -212,10 +233,22 @@ This component implements the Magnum Energy RS485 network protocol as documented
 - **Bus speed:** 19200 baud, 8N1, half-duplex RS485
 - **Cycle time:** 100ms — inverter transmits 21 bytes, remote responds 10ms later with 21 bytes
 - **Packet types:**
-  - Inverter: 22 bytes (21 data + 1 padding), identified by model byte at offset 14
+  - Inverter: 21 bytes, identified by the mode byte, the voltage at offset 2 and the model byte at offset 14. Some inverters send a 22nd byte with no data; the parser learns which kind it is talking to.
   - Remote: 21 bytes, identified by footer/subtype byte at offset 20
   - BMK: 18 bytes, starts with 0x81
   - RTR: 2 bytes, starts with 0x91
+
+The ESP32 UART delivers bytes in chunks, so a frame can be split across reads. The parser keeps a partial frame until the rest arrives. Remote settings are only published once two frames in a row agree.
+
+### Tests
+
+The frame parser has no ESPHome dependencies and can be tested on a desktop machine:
+
+```bash
+c++ -std=c++17 -Wall -Wextra -I esphome/components/magnum_inverter tests/test_frame_scanner.cpp -o /tmp/test_frame_scanner && /tmp/test_frame_scanner
+```
+
+The test replays sample packets through a simulated 19200-baud bus and ESP32 UART, for inverters that send 21 and 22 bytes, with and without junk bytes on the line.
 
 ## Supported Inverter Models
 
@@ -231,9 +264,9 @@ MM612, MM612-AE, MM1212, MMS1012, MM1012E, MM1512, MMS912E, ME1512, ME2012, RD22
 - Try swapping A and B lines
 - Ensure the RJ-11 cable is plugged into the inverter's "Network" port or port 5 or 6 on the ME-ARTR and using a phone splitter
 
-**BMK rejected messages:**
-- Normal during startup as the parser synchronizes with the packet stream
-- Should decrease after a few seconds
+**Rejected bytes climbing:**
+- A few during startup are normal while the parser synchronizes with the packet stream
+- A steady climb means noise on the line or packets the parser does not know (AGS, PT-100). Press `record_packets` and check the log.
 
 **Garbled data (lots of 0xFF):**
 - RS485 A and B are backwards

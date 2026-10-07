@@ -20,7 +20,7 @@ esp32:
   board: m5stack-atom
   #board: m5stack-atoms3 #for newer AtomS3 Lite
   framework:
-    type: arduino
+    type: esp-idf  # arduino also works
 
 # Pull the component from GitHub
 external_components:
@@ -61,6 +61,8 @@ uart:
 magnum_inverter:
   uart_id: magnum_uart
   time_id: ha_time
+  # Sensors show "unknown" in Home Assistant when no frames arrive for this long
+  stale_timeout: 10s
 
 # ============================================================
 # Sensors (numeric values)
@@ -112,7 +114,7 @@ sensor:
     bmk_max_voltage:
       name: "${friendly_name} BMK Max Voltage"
     bmk_ah_inout:
-      name: "${friendly_name} BMK Ah In/Out"
+      name: "${friendly_name} BMK Ah In-Out"
     bmk_ah_trip:
       name: "${friendly_name} BMK Ah Trip"
     bmk_cumulative_ah:
@@ -177,10 +179,6 @@ text_sensor:
       name: "${friendly_name} Model"
     inverter_stackmode:
       name: "${friendly_name} Stack Mode"
-    inverter_led:
-      name: "${friendly_name} Inverter LED"
-    charger_led:
-      name: "${friendly_name} Charger LED"
     inverter_on:
       name: "${friendly_name} Inverter On"
     bmk_fault:
@@ -193,6 +191,20 @@ text_sensor:
       name: "${friendly_name} Last Fault Text"
     last_fault_time:
       name: "${friendly_name} Last Fault Time"
+
+# ============================================================
+# Binary Sensors (on/off states)
+# ============================================================
+binary_sensor:
+  - platform: magnum_inverter
+    connected:
+      name: "${friendly_name} Connected"
+    inverter_led:
+      name: "${friendly_name} Inverter LED"
+    charger_led:
+      name: "${friendly_name} Charger LED"
+    inverter_fault:
+      name: "${friendly_name} Fault"
 
 # ============================================================
 # Buttons (actions)
